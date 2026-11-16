@@ -464,10 +464,29 @@ class Runner(threading.Thread):
         return True
 
     def _do_revert(self):
+        """恢复所选（svn revert）。
+
+        `--depth=empty` 只恢复节点本身，普通修改（含目录属性改动）用它，
+        免得顺手丢掉没勾选的子条目修改；但新增/替换/删除/缺失这类
+        “整棵树形状变化”的目录，svn 不允许只恢复父节点而不恢复孩子
+        （E155038），必须 `--depth=infinity` 连同子条目一起恢复，否则
+        “添加目录后还原”整条命令报错、什么都没恢复。深恢复清单由界面
+        按条目状态算好放进 deep（见 core.REVERT_TREE_ITEMS）。
+        """
         wc = self._wc()
         paths = list(self.params["paths"])
+        deep = set(self.params.get("deep") or [])
+        shallow = [p for p in paths if p not in deep]
+        roots = topmost_paths([p for p in paths if p in deep])
         self.log("恢复所选（丢弃本地修改）: %d 项" % len(paths), "phase")
-        self._run(["svn", "revert", "--depth=empty"] + paths, cwd=str(wc))
+        # 先恢复子/普通条目再整棵恢复：新增父目录不允许先于孩子恢复，
+        # 深恢复顶层化后已经覆盖其下勾选的子孙
+        if shallow:
+            self._run(["svn", "revert", "--depth=empty"] + shallow,
+                      cwd=str(wc))
+        if roots:
+            self._run(["svn", "revert", "--depth=infinity"] + roots,
+                      cwd=str(wc))
         return True
 
     def _do_delete(self):

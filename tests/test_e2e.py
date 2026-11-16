@@ -645,6 +645,53 @@ def main():
           and app.toast_text.cget("text") == u"请先勾选要提交的条目",
           "未勾选任何条目时提交被拦截并提示")
 
+    # ---- 阶段 3c: 未版本控制目录添加后可用“还原”完整取消（E155038 回归） ----
+    ndir = p / "newtree" / "sub"
+    ndir.mkdir(parents=True)
+    with open(str(ndir / "n.txt"), "w") as f:
+        f.write("n\n")
+    run_task(app, "status", {"wc": str(p)})
+    tree_rows = [i for i in app.up_items
+                 if i["path"] == "newtree"
+                 or i["path"].startswith("newtree/")]
+    check([(i["path"], i["item"]) for i in tree_rows]
+          == [("newtree", "unversioned")],
+          "未版本控制目录在列表里按顶层目录展示", str(tree_rows))
+    app.up_checked = set([i["path"] for i in tree_rows])
+    app._up_add()
+    ev_add = pump_task(app, "add")
+    names = dict((i["path"], i["item"]) for i in app.up_items)
+    check(ev_add.get("ok") is True
+          and names.get("newtree") == "added"
+          and names.get("newtree/sub/n.txt") == "added",
+          "添加未版本控制目录：连带子目录与文件一起加入")
+    app.up_checked = set(i["path"] for i in app.up_items
+                         if i["path"] == "newtree"
+                         or i["path"].startswith("newtree/"))
+    app._up_revert()
+    ev_rev = pump_task(app, "revert")
+    names = dict((i["path"], i["item"]) for i in app.up_items)
+    check(ev_rev.get("ok") is True
+          and names.get("newtree") == "unversioned"
+          and "newtree/sub" not in names
+          and (ndir / "n.txt").is_file(),
+          "还原新增目录：整棵子树取消添加且本地文件保留")
+    shutil.rmtree(str(p / "newtree"))
+    run_task(app, "status", {"wc": str(p)})
+
+    # ---- 阶段 3d: 删除目录后“还原”恢复整棵子树（同 E155038 回归） ----
+    run_task(app, "delete", {"wc": str(p), "paths": ["sub/deep"]})
+    names = dict((i["path"], i["item"]) for i in app.up_items)
+    check(names.get("sub/deep") == "deleted" and not (p / "sub/deep").exists(),
+          "删除目录：标记删除并移除本地目录")
+    app.up_checked = set(["sub/deep"])
+    app._up_revert()
+    ev_rev = pump_task(app, "revert")
+    names = dict((i["path"], i["item"]) for i in app.up_items)
+    check(ev_rev.get("ok") is True and "sub/deep" not in names
+          and (p / "sub/deep/d.txt").is_file(),
+          "还原删除的目录：整棵子树一起恢复")
+
     # ---- 阶段 4: 双击对比（内置差异窗口） ----
     with open(str(p / "src/a.c"), "a") as f:
         f.write("// diff-me\n")

@@ -425,6 +425,14 @@ STATUS_SORT_ORDER = ("conflicted", "missing", "obstructed", "incomplete",
                      "modified", "replaced", "added", "deleted", "external",
                      "normal", "none", "ignored", "unversioned")
 
+# “还原”需要连同子条目一起恢复（`svn revert --depth=infinity`）的状态：
+# added/replaced/deleted/missing 这类是整棵树形状的变化，svn 不允许只恢复
+# 父目录而不恢复孩子（E155038，1.10 实测），单节点模式（--depth=empty）
+# 会让“添加后还原/删除目录后还原”直接报错、什么都没恢复。
+# 普通 modified（目录属性改动）仍用单节点模式，避免顺手丢掉子条目的修改。
+REVERT_TREE_ITEMS = ("added", "replaced", "deleted", "missing",
+                     "obstructed", "incomplete")
+
 
 def status_sort_key(it):
     """改动列表排序键：(状态分组, 路径)。未版本控制在最后一组。"""

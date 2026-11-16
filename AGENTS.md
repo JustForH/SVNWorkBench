@@ -281,12 +281,13 @@
 指定固定目录保留现场）：
 
 ```bash
-python3 tests/test_e2e.py      # 53 项：端到端（启动时自动重建本地 file:// 测试仓库，可重复跑）
+python3 tests/test_e2e.py      # 58 项：端到端（启动时自动重建本地 file:// 测试仓库，可重复跑）
                                #   含配置迁移（旧 configs/_settings.json -> ~/.config）、
                                #   配置/日志默认落点、启动参数（合法才写配置）、
                                #   非法工作副本不落盘/重启清理、工作副本变化自动反查并刷新、
                                #   日志目录、日志默认折叠、
                                #   状态排序与忽略文件（*.so）、键盘选择（含 Shift+方向键扩展）、高亮选择与勾选分离（资源管理器式 Ctrl/Shift 只改高亮、只有点 ☑/☐ 字形才改勾选、多行高亮跟随、空格/右键批量勾选）、删除（svn delete --force）、
+                               #   还原（新增目录整棵子树取消添加、删除目录整棵子树恢复，E155038 回归锁）、
                                #   默认全不勾选、空选提交拦截、双击对比（meld / 内置 / 对比方式
                                #   弹窗与记住、右键菜单与查看提交历史、无基线条目全新增）、改动列表正文垂直居中
 python3 tests/test_browse.py   # 4 项：目录选择三分支（假 zenity / 取消 / Tk 回退）
@@ -296,7 +297,7 @@ python3 tests/test_repo_browser.py # 132 项：仓库浏览器（解析/本地�
 python3 tests/test_log_view.py # 31 项：提交历史（log 解析/对比"与上一版本"语义/单文件按地址 E155010 回归锁/meld 两版与内置选择/记住选择/取消/截断/地址目标/完整提交说明区含 3 行布局/关闭清理/子窗 transient/Tk 内部 _root 不被覆盖）
 python3 tests/test_theme.py    # 54 项：换肤（10 套皮肤与固定顺序/默认晴空与非法值回退/配置持久化与重启恢复/换肤菜单单选/主窗口与辅助窗口/内置差异/菜单/CheckBox/Combobox 下拉列表/ttk 样式实时换色/文本选中滚动勾选与任务状态保持/状态色语义与对比度）
 ```
-合计 332 项。
+合计 337 项。
 
 最小验证：
 
@@ -489,7 +490,9 @@ python3 SVNWorkBench.py                 # 手动起窗口，肉眼过一遍工�
   取消勾选所选条目"，右键落在选区内保留多选）/ `_show_new_file`（无基线条目按
   全新增渲染）、`_tmp_dir` / `_tmp_file` /
   `_up_item` / `_reap_meld`，以及 `_up_set_all` / `_up_add` /
-  `_up_revert` / `_up_delete`（`svn delete --force`，空选拦截 + 确认框）/
+  `_up_revert`（按 `core.REVERT_TREE_ITEMS` 算出需整棵恢复的 `deep`
+  清单，见"行为陷阱"/还原条）/ `_up_delete`（`svn delete --force`，
+  空选拦截 + 确认框）/
   `_commit`（空选拦截）/ `_up_clear_msg`（提交成功后清空
   提交说明框，`_handle_done` 的 commit 分支调）、`open_wc`（启动参数入口）。
   自动触发的任务走 `_run_start(..., quiet=True)`，失败不弹窗、完成不弹
@@ -803,6 +806,19 @@ python3 SVNWorkBench.py                 # 手动起窗口，肉眼过一遍工�
   （直接从磁盘删除）、已修改的版本控制条目（本地移除 + 标记删除）、
   本地已缺失的条目（补记删除）一条命令走通，不带 --force 前三种都会
   报错。空选时 `_up_delete` 直接拦截并 toast，**别退回"删除整个工作副本"**。
+- **还原要按状态区分单节点/整棵树**（`Runner._do_revert`）：普通修改
+  （含目录属性改动）用 `--depth=empty`，只恢复勾选的条目，不碰没勾选的
+  子条目修改；但 added/replaced/deleted/missing/obstructed/incomplete
+  这类“整棵树形状变化”的目录 **必须 `--depth=infinity`**——svn 不允许
+  只恢复父目录而不恢复孩子，`--depth=empty` 会直接报 E155038（“不能恢复
+  'xxx'，而不恢复孩子”），整条命令失败、什么都没恢复（用户反馈
+  “未版本控制文件添加后用还原取消不了添加”就是这个：`svn add --parents`
+  连带加入的父目录也在勾选清单里，按列表顺序父目录在前，一报错整批回滚）。
+  深恢复清单由 `App._up_revert` 按 `core.REVERT_TREE_ITEMS` 算好放进
+  `deep` 参数，`_do_revert` 先跑单节点、再把 deep 顶层化后整棵恢复。
+  **别图省事全用 `--depth=infinity`**：勾选一个只有属性改动的目录时会
+  顺手丢掉其下未勾选文件的本地修改。测试锁见 `tests/test_e2e.py` 阶段
+  3c/3d（新增目录、删除目录的还原）。
 - **双击与单击共用一次 release**：Tk 对双击会先发 `<Double-Button-1>`
   （press2）再发 `<ButtonRelease-1>`，而 `_up_click` 绑的是 release，
   不加拦截就会把勾选框**翻两次**。所以 `_up_dblclick` 一进来就置

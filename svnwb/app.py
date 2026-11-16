@@ -1857,6 +1857,12 @@ class App(object):
         self._run_start("delete", {"wc": wc, "paths": sel})
 
     def _up_revert(self):
+        """还原勾选的条目；新增/删除/缺失的目录按整棵子树恢复。
+
+        深恢复清单按条目状态算好传给 Runner（见 core.REVERT_TREE_ITEMS 与
+        Runner._do_revert 的 docstring）：只对“整棵树形状变化”的条目递归，
+        普通修改仍只恢复勾选的节点，不丢未勾选子条目的本地修改。
+        """
         sel = self._checked_paths()
         if not sel:
             self._toast(u"请先勾选要恢复的条目", "warn")
@@ -1865,11 +1871,16 @@ class App(object):
         if not wc:
             self._toast(u"请先填写工作副本路径", "warn")
             return
+        deep = [i["path"] for i in self.up_items
+                if i["path"] in self.up_checked
+                and i["item"] in core.REVERT_TREE_ITEMS]
         body = (u"将丢弃以下 %d 项的本地修改，且不可撤销：\n%s"
                 % (len(sel), "\n".join(sel)))
+        if deep:
+            body += u"\n\n新增/删除/缺失的条目若为目录，会连同其下的条目一起恢复。"
         if not dialogs.ask_confirm(self.root, u"恢复所选", body, u"确认恢复"):
             return
-        self._run_start("revert", {"wc": wc, "paths": sel})
+        self._run_start("revert", {"wc": wc, "paths": sel, "deep": deep})
 
     def _up_clear_msg(self):
         """清空提交说明框（提交成功后调用）。
