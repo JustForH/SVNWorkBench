@@ -784,9 +784,11 @@ def centered(win, parent, tol=5):
 # 修正，所以用 wait_for 等它落地
 check(wait_for(lambda: m.theme._DECOR is not None)
       and wait_for(lambda: centered(rbw, app.root))
-      and str(rbw.transient()) == str(app.root),
-      "仓库浏览器居中于主窗口并登记为父窗 transient",
-      "%r / %r" % (m.theme._DECOR, center_gap(rbw, app.root)))
+      and str(rbw.transient()) == str(app.root)
+      and rbw.winfo_width() == m.theme.WINDOW_W,
+      "仓库浏览器居中、宽度与其它辅助窗口统一并登记为父窗 transient",
+      "%r / %r / w=%d" % (m.theme._DECOR, center_gap(rbw, app.root),
+                          rbw.winfo_width()))
 
 # ============================================================
 # 4. 浏览器：加载 / 导航 / 右键 / 复制
@@ -1235,9 +1237,11 @@ co = rb.CheckoutSelect(rbw, URL, rbw._node_items.get(URL))
 rbw.checkout = co
 pump(0.1)
 check(wait_for(lambda: centered(co, rbw))
-      and str(co.transient()) == str(rbw),
-      "检出对话框居中并登记为仓库浏览器的 transient",
-      "%r / %r" % (center_gap(co, rbw), co.transient()))
+      and str(co.transient()) == str(rbw)
+      and co.winfo_width() == m.theme.DIALOG_W,
+      "检出对话框居中、宽度与其它弹窗统一并登记为仓库浏览器的 transient",
+      "%r / %r / w=%d" % (center_gap(co, rbw), co.transient(),
+                          co.winfo_width()))
 # 模态窗最小化防护：标记为 dialog（自动还原逻辑由 test_dialogs 锁）
 _guard_ok = "dialog" in str(co.attributes("-type"))
 check(_guard_ok, "检出对话框标为 dialog（禁止/自动恢复最小化）",

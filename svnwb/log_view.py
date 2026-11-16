@@ -75,7 +75,7 @@ class LogView(tk.Toplevel):
     # ---------- 界面 ----------
     def _build(self):
         self.title(u"提交历史")
-        self.geometry("880x620")           # 比原来高 60px：多出提交说明区
+        self.geometry("%dx620" % theme.WINDOW_W)   # 宽度与其它辅助窗口统一
         self.minsize(680, 500)             # 再矮改动列表会被挤没（见下）
 
         bar = tk.Frame(self)

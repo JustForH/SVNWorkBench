@@ -741,7 +741,8 @@ class CheckoutSelect(tk.Toplevel):
     # ---------- 界面 ----------
     def _build(self):
         self.title(u"检出 / 更新")
-        self.minsize(560, 480)
+        # 宽度与其它模态弹窗统一（高度仍按内容/屏幕自适应）
+        self.minsize(theme.DIALOG_W, 480)
         fam = theme.pick_family(self, mono=True)
         base = theme.base_size()
         self.font_body = tkfont.Font(family=fam,
@@ -1569,7 +1570,7 @@ class CatView(tk.Toplevel):
         self._encoding = None     # None=自动识别；否则是手动选择的编码名
         self.configure(bg=core.APP_BG)       # 与主窗口同一套平面底色
         self.title(u"文件内容 · " + core.APP_TITLE)
-        self.geometry("860x560")
+        self.geometry("%dx560" % theme.WINDOW_W)
         self.minsize(480, 300)
         self.protocol("WM_DELETE_WINDOW", self.destroy)
         self.bind("<Escape>", lambda _e: self.destroy())
@@ -1756,7 +1757,7 @@ class RepoBrowser(tk.Toplevel):
     # ---------- 界面 ----------
     def _build(self, initial_url):
         self.title(u"仓库浏览 · " + core.APP_TITLE)
-        self.geometry("920x600")
+        self.geometry("%dx600" % theme.WINDOW_W)
         self.minsize(700, 440)
 
         top = tk.Frame(self)

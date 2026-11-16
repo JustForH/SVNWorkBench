@@ -186,6 +186,8 @@ def drive(label, opener, steps):
 # ---------- 1. ask_confirm：取消→False ----------
 def confirm_cancel(d):
     OBS["t1"] = d.title()
+    d.update_idletasks()
+    OBS.setdefault("dlg_widths", []).append((d.title(), d.winfo_width()))
     return click(d, u"取消") or None
 
 st = drive(u"确认框打开并可取消",
@@ -232,6 +234,8 @@ ok("模态窗口标为 dialog，被最小化时自动还原且保留抓取",
 # ---------- 2b. 对比方式选择框：取消 / 选内置并记住 ----------
 def diff_cancel(d):
     OBS["diff_title"] = d.title()
+    d.update_idletasks()
+    OBS.setdefault("dlg_widths", []).append((d.title(), d.winfo_width()))
     if not buttons(d):
         return None
     return click(d, u"取消") or None
@@ -507,6 +511,8 @@ app3.root.destroy()
 def logs_step(d):
     OBS["log_title"] = d.title()
     OBS["log_tree"] = any(w.winfo_class() == "Treeview" for w in walk(d))
+    d.update_idletasks()
+    OBS.setdefault("dlg_widths", []).append((d.title(), d.winfo_width()))
     if "log_notice" not in OBS:
         # 未选文件点“打开所选文件”：窗口内提示，不弹系统消息框
         for tree in [w for w in walk(d) if w.winfo_class() == "Treeview"]:
@@ -534,6 +540,8 @@ def auth_fill(d):
         return None
     ents = entries(d)
     OBS["auth_ents"] = len(ents)
+    d.update_idletasks()
+    OBS.setdefault("dlg_widths", []).append((d.title(), d.winfo_width()))
     if len(ents) != 2:
         return None
     OBS["auth_mask"] = ents[1].cget("show")
@@ -565,6 +573,8 @@ def cert_fill(d):
     if d.title() != u"服务器证书验证失败":
         return None
     OBS["cert_cbs"] = len(checkbuttons(d))
+    d.update_idletasks()
+    OBS.setdefault("dlg_widths", []).append((d.title(), d.winfo_width()))
     if not OBS.get("cert_cb_on"):
         for cb in checkbuttons(d):
             cb.invoke()
@@ -661,6 +671,8 @@ def creds_del(d):
         return None
     tree = trees_[0]
     OBS["cred_dlg_title"] = d.title()
+    d.update_idletasks()
+    OBS.setdefault("dlg_widths", []).append((d.title(), d.winfo_width()))
     if "rows0" not in OBS:
         OBS["rows0"] = list(tree.get_children())
         OBS["vals0"] = [tree.item(i, "values") for i in OBS["rows0"]]
@@ -787,5 +799,13 @@ ok("取消删除时已展示凭据名称且文件保留",
    REALM_B in (OBS.get("cancel_body") or u"")
    and os.path.exists(FILE_B),
    repr(OBS.get("cancel_body")))
+
+# 统一宽度回归：弹窗不再按内容自适应（确认框短内容时曾缩成 200 多像素），
+# 所有模态弹窗都撑到 theme.DIALOG_W；检出对话框在 test_repo_browser 里锁
+WIDTHS = OBS.get("dlg_widths") or []
+ok("所有模态弹窗宽度统一为 DIALOG_W",
+   len(WIDTHS) >= 6 and len(set(w for _t, w in WIDTHS)) == 1
+   and all(w == m.theme.DIALOG_W for _t, w in WIDTHS),
+   "%r / DIALOG_W=%d" % (WIDTHS, m.theme.DIALOG_W))
 
 print("dialogs: ALL PASS (%d)" % len(PASSED))

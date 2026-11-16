@@ -59,6 +59,17 @@ SINGLE_LINE_PADY = 5  # 单行 tk.Text（提交说明）用它对齐到 32px
 BTN_W = 8         # 标准钮：≤4 个汉字（刷新 / 仓库浏览 / 显示日志 / 更新…）
 BTN_W_LONG = 12   # 长名钮：≤6 个汉字（取消本次操作 / 打开所选文件…）
 
+# 窗口宽度统一（用户要求：所有弹窗看起来是一套，不能跟着内容忽宽忽窄）：
+#   DIALOG_W  模态弹窗（确认 / 对比方式 / 认证 / 证书 / 运行日志 /
+#             登录凭据 / 检出勾选）统一宽度；高度仍按内容自适应
+#   WINDOW_W  非模态辅助窗口（仓库浏览 / 提交历史 / 查看内容 / 内置差异）
+#             统一宽度
+# 确认框原来按“最长一行”估宽，短路径时窗口只有 200 多像素，又窄又高
+# （用户反馈很别扭）；现在统一在 _dialog 里用 minsize 撑到 DIALOG_W，
+# 内容只决定高度。新增弹窗时不要再传自己的 geometry 宽度。
+DIALOG_W = 640
+WINDOW_W = 920
+
 # 字体族候选：优先中文CJK 齐全的；都缺就退回系统等宽族（老机器上是 monospace）
 UI_FAMILIES = (u"Noto Sans CJK SC", u"WenQuanYi Zen Hei", u"Droid Sans Fallback",
                u"Noto Sans Mono CJK SC")

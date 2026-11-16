@@ -23,13 +23,18 @@ from . import core, theme
 from .core import (list_credentials, log_dir, subversion_auth_dir, tail_msg)
 
 
-def _info_box(parent, text, wraplength):
+def _info_box(parent, text, wraplength=None):
     """弹窗里的说明块：白色面板 + 1px 细边框（不用 Tk 默认的立体凹陷）。"""
+    if wraplength is None:
+        # 与弹窗统一宽度对齐：DIALOG_W 减去外层 18*2、标签内边距 10*2
+        # 和 1px 边框，说明块正好铺满可视宽度
+        wraplength = theme.DIALOG_W - 58
     lbl = tk.Label(parent, text=text, justify="left", anchor="w",
                    wraplength=wraplength, bg=core.SURFACE, fg=core.TEXT,
                    relief="flat", bd=0, padx=10, pady=8,
                    highlightthickness=1, highlightbackground=core.BORDER)
-    lbl.pack(padx=18, pady=(14, 8), anchor="w")
+    # 铺满弹窗宽度（内容短时也保持和其它弹窗同一条白色面板边界）
+    lbl.pack(fill="x", padx=18, pady=(14, 8))
     return lbl
 
 
@@ -39,12 +44,16 @@ def _dialog(parent, title):
     位置由调用方在内容全部建好后、grab_set 之前调
     theme.center_on_parent(win, parent) 居中——这里建时还量不到尺寸，
     不预设位置（见 theme.center_on_parent）。
+
+    宽度统一为 theme.DIALOG_W：Tk 默认按内容自适应，确认框内容短时
+    会缩成一条窄带（用户反馈很别扭）；minsize 只锁宽度，高度仍按内容走。
     """
     win = tk.Toplevel(parent)
     win.title(title)
     win.configure(bg=core.APP_BG)   # 与主窗口同一套平面底色
     win.transient(parent)
     win.resizable(False, False)
+    win.minsize(theme.DIALOG_W, 1)
     # 模态窗禁止/自动恢复最小化：被最小化后 grab 仍生效，主窗口会像卡死
     theme.install_modal_guard(win)
     win.protocol("WM_DELETE_WINDOW", win.destroy)
@@ -71,12 +80,14 @@ def ask_confirm(parent, title, body, ok_text=u"确定"):
     font = tkfont.nametofont("TkDefaultFont")
     line_h = font.metrics("linespace") or 20
     max_lines = max(4, min(12, (win.winfo_screenheight() - 260) // line_h))
-    # 宽度按内容最长行估算，但不超过原来的 520px 换行宽度
+    # 宽度按统一弹窗宽度换算成字符数（去掉左右 18*2 外边距、滚动条与
+    # 1px 边框）；窗口本身由 _dialog 的 minsize 撑到 DIALOG_W
     max_px = max([font.measure(line) for line in lines] or [0])
     char_w = font.measure(u"0") or 7
-    width = max(24, min(76, int(min(520, max_px) / char_w) + 2))
+    wrap_px = theme.DIALOG_W - 58
+    width = max(24, int(wrap_px / char_w))
     visible = min(max_lines, max(1, len(lines)))
-    if max_px > 520:
+    if max_px > wrap_px:
         visible = min(max_lines, max(visible, 3))
 
     box = tk.Frame(win)
@@ -86,7 +97,7 @@ def ask_confirm(parent, title, body, ok_text=u"确定"):
     txt.insert("1.0", text)
     txt.configure(state="disabled")
     txt.pack(side="left", fill="both", expand=True)
-    if len(lines) > visible or max_px > width * char_w:
+    if len(lines) > visible or max_px > wrap_px:
         ysb = ttk.Scrollbar(box, orient="vertical", command=txt.yview)
         txt.configure(yscrollcommand=ysb.set)
         ysb.pack(side="right", fill="y")
@@ -122,8 +133,7 @@ def ask_diff_mode(parent):
     _info_box(win,
               u"meld：在外部程序中左右对比两版原始内容，适合逐行细看。\n"
               u"内置窗口：在程序内显示彩色统一差异，不启动外部进程。\n"
-              u"勾选“记住”后，可从顶栏“对比方式”或改动列表右键菜单改回来。",
-              480)
+              u"勾选“记住”后，可从顶栏“对比方式”或改动列表右键菜单改回来。")
     remember = tk.BooleanVar(value=False)
     theme.CheckBox(win, text=u"记住我的选择，以后不再询问",
                    variable=remember).pack(anchor="w", padx=16, pady=(2, 0))
@@ -152,7 +162,7 @@ def ask_diff_mode(parent):
 def ask_auth(parent, message):
     """SVN 身份验证弹窗；返回 {"ok":True,"username","password","remember"} 或 {"ok":False}。"""
     win = _dialog(parent, u"需要 SVN 身份验证")
-    _info_box(win, tail_msg(message), 460)
+    _info_box(win, tail_msg(message))
     result = {"ok": False}
     user = tk.StringVar()
     pwd = tk.StringVar()
@@ -187,7 +197,7 @@ def ask_auth(parent, message):
 def ask_cert(parent, message):
     """服务器证书弹窗；返回 {"ok":True,"remember"} 或 {"ok":False}。"""
     win = _dialog(parent, u"服务器证书验证失败")
-    _info_box(win, tail_msg(message), 480)
+    _info_box(win, tail_msg(message))
     result = {"ok": False}
     remember = tk.BooleanVar(value=False)
     theme.CheckBox(win, text=u"记住此选择（写入配置，之后自动信任）",
@@ -230,16 +240,17 @@ def show_logs(parent):
                        key=lambda p: p.stat().st_mtime, reverse=True)[:200]
     except OSError:
         files = []
-    tk.Label(win, text=str(d), fg=core.MUTED, anchor="w").pack(
-        fill="x", padx=16, pady=(12, 6))
+    tk.Label(win, text=str(d), fg=core.MUTED, anchor="w",
+             justify="left", wraplength=theme.DIALOG_W - 36).pack(
+        fill="x", padx=18, pady=(16, 6))
     box = tk.Frame(win)
-    box.pack(fill="both", expand=True, padx=16)
+    box.pack(fill="both", expand=True, padx=18)
     tree = ttk.Treeview(box, columns=("name", "size", "mtime"), show="headings",
                         height=14, selectmode="browse")
     tree.heading("name", text=u"文件名")
     tree.heading("size", text=u"大小")
     tree.heading("mtime", text=u"修改时间")
-    tree.column("name", width=340, anchor="w")
+    tree.column("name", width=336, anchor="w")
     tree.column("size", width=90, anchor="e")
     tree.column("mtime", width=160, anchor="w")
     sb = ttk.Scrollbar(box, orient="vertical", command=tree.yview)
@@ -259,8 +270,9 @@ def show_logs(parent):
 
     # 通知写在窗口内（不弹系统 messagebox：模态消息框被最小化后 grab
     # 仍生效，主窗口会像卡死；用户反馈）
-    notice = tk.Label(win, text="", fg=core.MUTED, anchor="w")
-    notice.pack(fill="x", padx=16, pady=(6, 0))
+    notice = tk.Label(win, text="", fg=core.MUTED, anchor="w",
+                      justify="left", wraplength=theme.DIALOG_W - 36)
+    notice.pack(fill="x", padx=18, pady=(6, 0))
 
     def say(msg, kind="warn"):
         notice.configure(text=msg, fg=core.LOG_COLORS.get(kind, core.MUTED))
@@ -285,14 +297,15 @@ def show_logs(parent):
 
     tree.bind("<Double-Button-1>", lambda e: open_sel())
     bar = tk.Frame(win)
-    bar.pack(fill="x", padx=16, pady=(10, 16))
+    bar.pack(fill="x", padx=18, pady=(12, 16))
     ttk.Button(bar, text=u"打开所在文件夹", command=open_dir).pack(side="left")
     ttk.Button(bar, text=u"关闭", command=win.destroy,
                width=theme.BTN_W_LONG).pack(side="right", padx=(8, 0))
     ttk.Button(bar, text=u"打开所选文件", command=open_sel,
                width=theme.BTN_W_LONG).pack(side="right")
     if not count:
-        tk.Label(win, text=u"（还没有日志）", fg=core.MUTED).pack(anchor="w", padx=16)
+        tk.Label(win, text=u"（还没有日志）", fg=core.MUTED).pack(
+            anchor="w", padx=18)
     theme.center_on_parent(win, parent)
     win.grab_set()
     win.wait_window()
@@ -312,17 +325,18 @@ def show_credentials(parent):
     """
     win = _dialog(parent, u"SVN 登录凭据")
     win.resizable(True, True)
-    win.geometry("720x460")
+    win.geometry("%dx460" % theme.DIALOG_W)
     win.rowconfigure(2, weight=1)      # 只让列表行伸缩，按钮条固定可见
     win.columnconfigure(0, weight=1)
     tk.Label(win, text=u"缓存目录: %s" % subversion_auth_dir(), fg=core.MUTED,
-             anchor="w").grid(row=0, column=0, sticky="ew", padx=16,
-                              pady=(12, 2))
+             anchor="w", justify="left",
+             wraplength=theme.DIALOG_W - 36).grid(
+        row=0, column=0, sticky="ew", padx=18, pady=(16, 2))
     tk.Label(win, text=u"选中后点“删除所选…”；删除后 svn 下次连接会重新询问"
                        u"用户名/密码", fg=core.MUTED, anchor="w").grid(
-        row=1, column=0, sticky="ew", padx=16, pady=(0, 6))
+        row=1, column=0, sticky="ew", padx=18, pady=(0, 6))
     box = tk.Frame(win)
-    box.grid(row=2, column=0, sticky="nsew", padx=16)
+    box.grid(row=2, column=0, sticky="nsew", padx=18)
     box.rowconfigure(0, weight=1)
     box.columnconfigure(0, weight=1)
     tree = ttk.Treeview(box, columns=("user", "name", "file"),
@@ -330,20 +344,20 @@ def show_credentials(parent):
     tree.heading("user", text=u"用户名")
     tree.heading("name", text=u"凭据名称")
     tree.heading("file", text=u"缓存文件")
-    tree.column("user", width=140, anchor="w")
-    tree.column("name", width=400, anchor="w")
-    tree.column("file", width=140, anchor="w")
+    tree.column("user", width=110, anchor="w")
+    tree.column("name", width=340, anchor="w")
+    tree.column("file", width=130, anchor="w")
     sb = ttk.Scrollbar(box, orient="vertical", command=tree.yview)
     tree.configure(yscrollcommand=sb.set)
     tree.grid(row=0, column=0, sticky="nsew")
     sb.grid(row=0, column=1, sticky="ns")
     empty = tk.Label(win, text="", fg=core.MUTED)
-    empty.grid(row=3, column=0, sticky="w", padx=16)
+    empty.grid(row=3, column=0, sticky="w", padx=18)
     # 通知写在窗口内（系统 messagebox 是 Tk 内部模态窗，最小化后会攥着
     # grab 让主窗口像卡死；这里统一用窗口内提示）
     notice = tk.Label(win, text="", fg=core.MUTED, anchor="w",
-                      justify="left", wraplength=660)
-    notice.grid(row=4, column=0, sticky="ew", padx=16)
+                      justify="left", wraplength=theme.DIALOG_W - 36)
+    notice.grid(row=4, column=0, sticky="ew", padx=18)
     state = {"items": []}
 
     def say(msg, kind="warn"):
@@ -398,7 +412,7 @@ def show_credentials(parent):
             say(u"以下凭据删除失败：\n%s" % "\n".join(failed), "err")
 
     bar = tk.Frame(win)
-    bar.grid(row=5, column=0, sticky="ew", padx=16, pady=(10, 16))
+    bar.grid(row=5, column=0, sticky="ew", padx=18, pady=(12, 16))
     ttk.Button(bar, text=u"删除所选…", command=del_sel,
                width=theme.BTN_W_LONG).pack(side="left")
     ttk.Button(bar, text=u"关闭", command=win.destroy,
@@ -531,7 +545,7 @@ def show_diff_win(parent, path, res, font_bold=None, win=None):
         win = tk.Toplevel(parent)
         win.title(u"差异对比")
         win.configure(bg=core.APP_BG)
-        win.geometry("940x560")
+        win.geometry("%dx560" % theme.WINDOW_W)
         win.minsize(560, 320)
         win.protocol("WM_DELETE_WINDOW", win.destroy)
         win.bind("<Escape>", lambda _e: win.destroy())
