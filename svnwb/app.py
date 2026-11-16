@@ -52,6 +52,8 @@ class App(object):
         core.apply_palette(self.theme_name)
         # 平面化主题（配色/扁平边框/内边距）
         theme.apply_theme(self.root)
+        # 窗口/任务栏图标：base64 内嵌，-default 让之后开的子窗口自动继承
+        theme.set_window_icon(self.root)
         dialogs.install_edit_shortcuts(self.root)
         self.root.title("%s v%s" % (APP_TITLE, APP_VERSION))
         self.root.geometry("1060x780")

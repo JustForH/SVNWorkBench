@@ -5,7 +5,8 @@
 `repo_browser.py` 约 2255 行仓库浏览器、`log_view.py` 提交历史窗口、
 `core.py` 常量/纯函数/皮肤库与配色计算、`runner.py` svn 执行线程、
 `hub.py` 任务调度、`dialogs.py` 弹窗与内置差异窗口、
-`theme.py` 平面化主题与换肤、`config_store.py` 配置）+ `scripts/` 下的
+`theme.py` 平面化主题与换肤、`appicon.py` 程序图标（base64 内嵌）、
+`config_store.py` 配置）+ `scripts/` 下的
 打包/右键菜单脚本（根目录 `1-构建-打包绿色单文件.sh`、
 `2-清理-构建产物与缓存.sh`，以及 `scripts/right-menu/UOS/`、
 `scripts/right-menu/Kylin-V10/`、`scripts/right-menu/Kylin-V10-SP1/`
@@ -176,6 +177,15 @@
     ☑/☐（与改动列表同款），旧的 `CHECK_STYLE`（`Check.Treeview`，
     因为"Treeview 一行只有一个字号"只能与目录名同字号不加粗）**已删除，
     别再加回来**。
+  - **窗口/任务栏图标内嵌在代码里**：`theme.set_window_icon(root)` 在
+    `App.__init__` 的 `apply_theme` 之后调用一次（只设主窗口）；图标是
+    `svnwb/appicon.py` 里 256x256 PNG 的 base64，**不要放静态资源目录/
+    外部图片**——交付是单文件 exe，程序旁边没有图标文件可读。
+    `iconphoto(..., True)` 的 `-default` 让之后创建的所有 Toplevel
+    （仓库浏览器/提交历史/各类弹窗）自动继承，不用逐窗调用。
+    PhotoImage 必须挂在根窗口 `_app_icon_imgs` 上留引用（Tk 不持有强
+    引用，被 GC 回收后图标变空白）；换肤不重建图标；PNG 解码失败/窗口
+    已销毁时静默跳过，别让图标影响启动。回归测试 `tests/test_theme.py`。
   - **右键菜单一律用 `theme.make_menu(parent)`**：`tk.Menu` 不吃 ttk
     样式，缺省是系统灰底 + 立体边的老式菜单，与平面主题很不协调
     （用户反馈"太丑"）——统一面板底色、悬停强调色实底（文字用
@@ -295,9 +305,9 @@ python3 tests/test_dialogs.py  # 49 项：弹窗链路（确认框/对比方式�
 python3 tests/test_shortcuts.py # 9 项：输入控件快捷键（Ctrl+A 全选 / 复制粘贴，含 TCombobox）
 python3 tests/test_repo_browser.py # 132 项：仓库浏览器（解析/本地状态/读取线程/懒加载/仓库集合根索引解析与 HTTP 200/401/403/404/缓存凭据/列表 UI 与菜单守卫/勾选/右键菜单含查看提交记录与平面风格、列表空白处右键、复制解码地址、最近地址下拉与清空、列表名称图标与缩进/后缀/大小列、查看内容窗口（编码自动适配与手动切换、二进制提示）及快捷键/右键复制、内置差异窗口同样的快捷键/右键复制、导出到…真实 svn export/检出与更新；含文件级勾选、键盘操作、本地目录实时校验、排除状态后台补读不卡弹窗、窗口装饰偏移标定与父子居中、翻转勾选不移滚动、子窗 transient 压父窗、检出对话框 dialog 防护、点"开始下载"自动收起辅助窗口与友好提示）
 python3 tests/test_log_view.py # 31 项：提交历史（log 解析/对比"与上一版本"语义/单文件按地址 E155010 回归锁/meld 两版与内置选择/记住选择/取消/截断/地址目标/完整提交说明区含 3 行布局/关闭清理/子窗 transient/Tk 内部 _root 不被覆盖）
-python3 tests/test_theme.py    # 54 项：换肤（10 套皮肤与固定顺序/默认晴空与非法值回退/配置持久化与重启恢复/换肤菜单单选/主窗口与辅助窗口/内置差异/菜单/CheckBox/Combobox 下拉列表/ttk 样式实时换色/文本选中滚动勾选与任务状态保持/状态色语义与对比度）
+python3 tests/test_theme.py    # 56 项：换肤（10 套皮肤与固定顺序/默认晴空与非法值回退/配置持久化与重启恢复/换肤菜单单选/主窗口与辅助窗口/内置差异/菜单/CheckBox/Combobox 下拉列表/ttk 样式实时换色/文本选中滚动勾选与任务状态保持/状态色语义与对比度）
 ```
-合计 337 项。
+合计 339 项。
 
 最小验证：
 

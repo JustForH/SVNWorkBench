@@ -201,6 +201,10 @@ check(app.theme_name == u"深空"
       and m.core.SURFACE == "#2C2C2E"
       and same_color(app.root.cget("bg"), "#1C1C1E"),
       "启动时按配置恢复深空并套到 root: %r" % app.theme_name)
+icon_imgs = getattr(app.root, "_app_icon_imgs", [])
+check([i.width() for i in icon_imgs] == [256, 64, 32],
+      "窗口/任务栏图标：内嵌 PNG 解出 256/64/32 三档并挂在 root 上留引用",
+      [i.width() for i in icon_imgs])
 check(app.btn_theme.cget("text") == u"主题"
       and app._theme_var.get() == u"深空",
       "顶栏有主题按钮且单选变量同步")
@@ -249,6 +253,9 @@ before_toast = app.toast_text.cget("text")
 
 app._set_theme(u"暗金")
 app.root.update()
+check(getattr(app.root, "_app_icon_imgs", None) is icon_imgs
+      and [i.width() for i in icon_imgs] == [256, 64, 32],
+      "换肤不重建/不丢窗口图标（PhotoImage 引用保持）")
 
 check(app.theme_name == u"暗金"
       and m.core.APP_BG == "#121212"

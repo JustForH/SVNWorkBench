@@ -35,7 +35,7 @@ import tkinter as tk
 import tkinter.font as tkfont
 from tkinter import ttk
 
-from . import core
+from . import appicon, core
 from .core import CHECK_OFF, CHECK_ON, UP_CHECK_DELTA
 
 ACCENT_STYLE = "Accent.TButton"   # 主操作按钮（提交 / 开始下载 / 确定 …）
@@ -85,6 +85,30 @@ def check_font(widget, mono=False):
     theme.CheckBox 统一从这里取，保证三处“复选框”观感一致。"""
     return tkfont.Font(family=pick_family(widget, mono=mono),
                        size=base_size() + UP_CHECK_DELTA, weight="bold")
+
+
+def set_window_icon(win):
+    """给窗口设置程序图标（标题栏 / 任务栏 / Alt+Tab 共用）。
+
+    图标是 base64 内嵌的 PNG（`svnwb/appicon.py`），不依赖外部资源文件，
+    单文件 exe 也能用；同时登记 256/64/32 三档，WM 按场景挑尺寸。
+    `iconphoto(..., True)` 的 `-default` 会让**之后创建的所有 Toplevel
+    自动继承**，所以主窗口建好后调用一次即可（仓库浏览器/提交历史/
+    各类弹窗都跟着显示，不用逐窗设置）。
+    PhotoImage 必须挂在根窗口上留引用：Tk 不持有强引用，被 GC 回收后
+    图标会变空白（任务栏只剩默认羽毛）。窗口已销毁/PNG 解码失败时静默
+    跳过，绝不能因为图标影响程序启动。
+    """
+    try:
+        root = win.winfo_toplevel()
+        imgs = getattr(root, "_app_icon_imgs", None)
+        if not imgs:
+            big = tk.PhotoImage(master=root, data=appicon.PNG_B64)
+            imgs = [big, big.subsample(4, 4), big.subsample(8, 8)]
+            root._app_icon_imgs = imgs
+        win.iconphoto(True, *imgs)
+    except Exception:
+        pass
 
 
 def apply_theme(root):
