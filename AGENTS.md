@@ -301,7 +301,7 @@
 指定固定目录保留现场）：
 
 ```bash
-python3 tests/test_e2e.py      # 58 项：端到端（启动时自动重建本地 file:// 测试仓库，可重复跑）
+python3 tests/test_e2e.py      # 60 项：端到端（启动时自动重建本地 file:// 测试仓库，可重复跑）
                                #   含配置迁移（旧 configs/_settings.json -> ~/.config）、
                                #   配置/日志默认落点、启动参数（合法才写配置）、
                                #   非法工作副本不落盘/重启清理、工作副本变化自动反查并刷新、
@@ -309,15 +309,16 @@ python3 tests/test_e2e.py      # 58 项：端到端（启动时自动重建本�
                                #   状态排序与忽略文件（*.so）、键盘选择（含 Shift+方向键扩展）、高亮选择与勾选分离（资源管理器式 Ctrl/Shift 只改高亮、只有点 ☑/☐ 字形才改勾选、多行高亮跟随、空格/右键批量勾选）、删除（svn delete --force）、
                                #   还原（新增目录整棵子树取消添加、删除目录整棵子树恢复，E155038 回归锁）、
                                #   默认全不勾选、空选提交拦截、双击对比（meld / 内置 / 对比方式
-                               #   弹窗与记住、右键菜单与查看提交历史、无基线条目全新增）、改动列表正文垂直居中
+                               #   弹窗与记住、右键菜单与查看提交历史、无基线条目全新增、GBK 文件
+                               #   差异正文不乱码）、改动列表正文垂直居中
 python3 tests/test_browse.py   # 4 项：目录选择三分支（假 zenity / 取消 / Tk 回退）
 python3 tests/test_dialogs.py  # 50 项：弹窗链路（确认框/对比方式选择框/弹窗宽度统一/日志折叠且不自动展开/状态栏结果常驻/通知类失败不弹模态框/模态窗 dialog 防护与最小化自动还原/地址反查与工作副本变化自动刷新/非法路径不写配置/启动清理失效配置/日志文件/认证/证书/CheckBox/登录凭据窗口含按钮可见性与父窗居中/子窗 transient 压父窗）
 python3 tests/test_shortcuts.py # 9 项：输入控件快捷键（Ctrl+A 全选 / 复制粘贴，含 TCombobox）
-python3 tests/test_repo_browser.py # 132 项：仓库浏览器（解析/本地状态/读取线程/懒加载/仓库集合根索引解析与 HTTP 200/401/403/404/缓存凭据/列表 UI 与菜单守卫/勾选/右键菜单含查看提交记录与平面风格、列表空白处右键、复制解码地址、最近地址下拉与清空、列表名称图标与缩进/后缀/大小列、查看内容窗口（编码自动适配与手动切换、二进制提示）及快捷键/右键复制、内置差异窗口同样的快捷键/右键复制、导出到…真实 svn export/检出与更新；含文件级勾选、键盘操作、本地目录实时校验、排除状态后台补读不卡弹窗、窗口装饰偏移标定与父子居中、翻转勾选不移滚动、子窗 transient 压父窗、检出对话框 dialog 防护、点"开始下载"自动收起辅助窗口与友好提示）
+python3 tests/test_repo_browser.py # 133 项：仓库浏览器（解析/本地状态/读取线程/懒加载/仓库集合根索引解析与 HTTP 200/401/403/404/缓存凭据/列表 UI 与菜单守卫/勾选/右键菜单含查看提交记录与平面风格、列表空白处右键、复制解码地址、最近地址下拉与清空、列表名称图标与缩进/后缀/大小列、查看内容窗口（编码自动适配与手动切换、二进制提示）及快捷键/右键复制、内置差异窗口同样的快捷键/右键复制与差异正文编码解码、导出到…真实 svn export/检出与更新；含文件级勾选、键盘操作、本地目录实时校验、排除状态后台补读不卡弹窗、窗口装饰偏移标定与父子居中、翻转勾选不移滚动、子窗 transient 压父窗、检出对话框 dialog 防护、点"开始下载"自动收起辅助窗口与友好提示）
 python3 tests/test_log_view.py # 31 项：提交历史（log 解析/对比"与上一版本"语义/单文件按地址 E155010 回归锁/meld 两版与内置选择/记住选择/取消/截断/地址目标/完整提交说明区含 3 行布局/关闭清理/子窗 transient/Tk 内部 _root 不被覆盖）
 python3 tests/test_theme.py    # 56 项：换肤（10 套皮肤与固定顺序/默认晴空与非法值回退/配置持久化与重启恢复/换肤菜单单选/主窗口与辅助窗口/内置差异/菜单/CheckBox/Combobox 下拉列表/ttk 样式实时换色/文本选中滚动勾选与任务状态保持/状态色语义与对比度）
 ```
-合计 340 项。
+合计 343 项。
 
 最小验证：
 
@@ -387,7 +388,12 @@ python3 SVNWorkBench.py                 # 手动起窗口，肉眼过一遍工�
   **index 带 base 属性的是具体仓库页，返回 None**，HTML/坏 XML 也返回
   None，仓库地址去掉尾部斜杠）与 `looks_like_collection_error`
   （E175009 / E130003 / 190001 / "does not contain the name of a
-  repository"）
+  repository"）、
+  `decode_text`（原始字节 -> 文本+编码名+是否二进制，BOM/UTF-16/严格
+  UTF-8/GB18030 依次尝试；查看内容窗口与内置差异共用）与
+  `decode_diff_output`（`svn diff` 原始输出 -> 文本行列表：按 `Index:`
+  分文件段，hunk 正文按文件实际编码解码、文件头仍按 UTF-8，整段不匹配
+  时逐行兜底；解决 GBK 旧文件的内置差异乱码）
 - 下载算法核心在 `Runner._do_download`（目标不存在时逐层
   `set-depth` 递归，可断点续跑；同源工作副本时先 `svn update` 整树，
   再按 `restore` 拉回、按 `excludes` 排除）；改动它前先读懂 README
@@ -400,10 +406,9 @@ python3 SVNWorkBench.py                 # 手动起窗口，肉眼过一遍工�
   `topmost`（-> `core.topmost_paths`，勾选/恢复清单都取最上层）/
   `checked_to_excludes` / `parse_info_url` / `parse_status_have`（目录与
   文件都有）/ `read_local_kind`（只跑 `svn info` 的快速判定：none/fresh/
-  same/other/unknown，见 docstring）/ `decode_text`（原始字节 ->
-  文本+编码名+是否二进制，BOM/UTF-16/严格 UTF-8/GB18030 依次尝试）/
-  `cat_display`（svn cat 原始字节 -> 展示文本+状态说明，自动适配编码/
-  二进制/截断，见"查看内容"条）→
+  same/other/unknown，见 docstring）/ `cat_display`（svn cat 原始字节 ->
+  展示文本+状态说明，自动适配编码/二进制/截断，见"查看内容"条；底层
+  `decode_text` 已挪到 core，本模块保留同名别名供窗口/测试使用）→
   `LsWorker`（复用 `_decorate` / `_exec_stream` / `_run`；cat 用
   `sink="bytes"` 拿原始字节，目录/状态等 XML 用 `sink="buffer"`；
   120s 看门狗，等待凭据的时间不计超时）→ `CatView`（只读内容窗口，
@@ -531,12 +536,17 @@ python3 SVNWorkBench.py                 # 手动起窗口，肉眼过一遍工�
   - **选内置 / 没有 meld / 该条目是目录**：跑 "diff" 任务，
     `_handle_done` 调 `dialogs.show_diff_win(...)` 弹**非模态**
     内置差异窗口（复用 `self.diff_win`，重复双击只刷新内容）。
+    `_do_diff` 用 `sink="bytes"` 拿 `svn diff` 原始输出，再交给
+    `core.decode_diff_output` 按文件实际编码解码——svn 的文件头是
+    UTF-8，hunk 正文却是文件原始字节，先按 UTF-8 解码会让 GBK 旧文件
+    （readme.txt 这类）整段变成 U+FFFD 乱码，**别改回 `sink="buffer"`**。
     unversioned/ignored 没有 BASE 基线（对它们跑 `svn diff` 会 E155010），
     改由 `_show_new_file` 读本地文件按“全新增”渲染（二进制提示、超大
-    截断），不启动 svn 任务。
-  - `_exec_stream` 的 `sink` 三种取值：`log`（逐行进日志，默认）/
+    截断，编码同样走 `core.decode_text`），不启动 svn 任务。
+  - `_exec_stream` 的 `sink` 四种取值：`log`（逐行进日志，默认）/
     `buffer`（进 `self._buffer` 供 `--xml` 解析）/ `file`（原始字节写
-    `self._sink_file`）。
+    `self._sink_file`）/ `bytes`（原始字节进 `self._raw_out`，供查看
+    内容与差异解码；等待凭据时照常重试）。
 - 提交历史（地址行"显示日志"或仓库浏览器右键"查看提交记录" ->
   `App._open_log_view(url=None)` 懒加载 `svnwb/log_view.py` 的
   `LogView`；窗口已开时置前并 `lv.set_target(url or u"")`，目标变了才清
@@ -919,6 +929,14 @@ python3 SVNWorkBench.py                 # 手动起窗口，肉眼过一遍工�
   的单文件）-> 内置差异窗口，**绝不把 .diff 丢给 meld**，也别再
   写"临时 .diff 交给 meld 补丁视图"。整版本大差异会先按
   `core.DIFF_MAX_LINES` 截断（否则内置窗口卡死——同批用户反馈）。
+- **内置差异窗口的差异正文必须按文件实际编码解码**（用户反馈
+  readme.txt 乱码）：`svn diff` 输出里文件头是 UTF-8，但 hunk 正文原样
+  携带文件字节（GBK/GB18030 旧文件），整份按 UTF-8 解码会变成 U+FFFD。
+  `_do_diff` / `_do_logdiff` 用 `sink="bytes"` 拿原始输出，再由
+  `core.decode_diff_output` 按 `Index:` 分文件段、只用 hunk 正文探测
+  编码（Latin-1 不参与整段探测，避免吞掉混合编码），文件头仍按 UTF-8；
+  无基线的 `_show_new_file` 用 `core.decode_text` 解整个本地文件。
+  `tests/test_e2e.py` 锁了版本控制/未版本控制两条 GBK 路径。
 - **“查看内容”走 LsWorker 的 `("cat", url)` 任务**（`RepoBrowser.request_cat`
   -> `["svn","cat",url]`，sink="bytes" 拿**原始字节**）：窗口（`CatView`）
   先显示"正在读取…"，结果由 `_handle_event` 的 `tkind == "cat"` 路由到
@@ -927,7 +945,8 @@ python3 SVNWorkBench.py                 # 手动起窗口，肉眼过一遍工�
   （`_cat_url` 检查 `winfo_exists`）。**文本编码自动适配**（用户反馈 GBK
   文件显示乱码）：绝不能在 `_exec_stream` 里先按 UTF-8 解码再判断——那样
   原始字节已被替换成 U+FFFD，什么都救不回来；`sink="bytes"` 把原始字节
-  交给纯函数 `decode_text`，按 BOM -> 无 BOM 的 UTF-16 -> 严格 UTF-8 ->
+  交给纯函数 `decode_text`（实现在 core，repo_browser 保留同名别名），
+  按 BOM -> 无 BOM 的 UTF-16 -> 严格 UTF-8 ->
   GB18030/Big5/Shift-JIS/EUC-KR/Latin-1 依次尝试。GB18030 排在 Big5 等
   之前（目标机是中文系统，GBK 旧文件最常见）；两者字节范围有重叠，判断
   错时用内容窗口底部的**“编码”菜单**手动切换（`CatView._set_encoding`，

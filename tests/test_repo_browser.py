@@ -516,6 +516,24 @@ check(u"编码 Latin-1" in _on and not _ob
       "内容窗口手动指定编码，二进制（含 NUL）仍只提示不渲染",
       repr((_on, _mt, _mb)))
 
+# ---- 内置差异：svn diff 原始输出按文件实际编码解码 ----
+# svn 的文件头是 UTF-8，hunk 正文却是文件原始字节（GBK 旧文件常见）。
+# 先按 UTF-8 整份解码会把正文变成替换字符（用户反馈 readme.txt 乱码）。
+_diff_raw = (b"Index: readme.txt\n" + b"=" * 67 + b"\n"
+             + u"--- readme.txt\t(版本 2)\n".encode("utf-8")
+             + u"+++ readme.txt\t(工作副本)\n".encode("utf-8")
+             + b"@@ -1,2 +1,2 @@\n"
+             + b"-" + u"旧行：中文说明\r\n".encode("gbk")
+             + b"+" + u"新行：中文说明\r\n".encode("gbk"))
+_diff_lines = m.core.decode_diff_output(_diff_raw)
+_diff_joined = u"\n".join(_diff_lines)
+check(u"--- readme.txt\t(版本 2)" in _diff_lines
+      and u"-旧行：中文说明" in _diff_joined
+      and u"+新行：中文说明" in _diff_joined
+      and not any(u"\ufffd" in ln for ln in _diff_lines),
+      "decode_diff_output 按文件编码解码差异正文（GBK 不乱码）",
+      repr(_diff_lines))
+
 # ============================================================
 # 2. LsWorker
 # ============================================================

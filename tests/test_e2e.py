@@ -892,6 +892,37 @@ def main():
     finally:
         m.App.find_meld = staticmethod(orig_find)
 
+    # ---- 阶段 4b2: 非 UTF-8（GBK）文件的内置差异按实际编码显示 ----
+    # readme.txt 这类旧文件是 GBK/GB18030：svn 的文件头是 UTF-8、正文是
+    # 原始字节，先按 UTF-8 解码会整段变成替换字符（用户反馈的乱码）
+    with open(str(p / "doc/readme.txt"), "wb") as f:
+        f.write(u"第一行：中文内容\r\n第二行：修改说明\r\n".encode("gb18030"))
+    run_task(app, "status", {"wc": str(p)})
+    ev = run_task(app, "diff", {"wc": str(p), "path": "doc/readme.txt"})
+    gtxt = app.diff_win.diff_text.get("1.0", "end") if app.diff_win else ""
+    check(ev.get("ok") is True
+          and u"第一行：中文内容" in gtxt
+          and u"第二行：修改说明" in gtxt
+          and u"\ufffd" not in gtxt,
+          "版本控制条目：GBK/GB18030 文件的内置差异不乱码",
+          gtxt[:160].replace("\n", "|"))
+    subprocess.check_call(["svn", "revert", "doc/readme.txt"], cwd=str(p))
+
+    # 未版本控制文件走“全新增”渲染，同样不能按 UTF-8 硬解
+    gbk_new = p / "doc/gbk_new.txt"
+    with open(str(gbk_new), "wb") as f:
+        f.write(u"新增文件：中文说明\r\n第二行：GBK 内容\r\n".encode("gb18030"))
+    run_task(app, "status", {"wc": str(p)})
+    app._diff_open("doc/gbk_new.txt", mode="builtin")
+    ntxt = app.diff_win.diff_text.get("1.0", "end") if app.diff_win else ""
+    check(u"新增文件：中文说明" in ntxt
+          and u"第二行：GBK 内容" in ntxt
+          and u"\ufffd" not in ntxt,
+          "未版本控制条目：GBK/GB18030 文件按全新增显示且不乱码",
+          ntxt[:160].replace("\n", "|"))
+    os.unlink(str(gbk_new))
+    run_task(app, "status", {"wc": str(p)})
+
     # ---- 阶段 4c: 仓库侧有新版本，列表与差异仍只看本地 ----
     setup_wc = TMP + "/wc_setup/wc"
     with open(os.path.join(setup_wc, "trunk/doc/readme.txt"), "a") as f:

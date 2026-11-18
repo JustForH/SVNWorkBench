@@ -16,7 +16,6 @@
   导出同理走 Hub 的 "export" 模式（svn export，不含 .svn 的干净副本）。
 """
 
-import codecs
 import os
 import queue
 import socket
@@ -47,29 +46,13 @@ COLLECTION_TIMEOUT = 30
 # “查看内容”最多展示的行数（超大文件先截断，防 Text 卡死；
 # 与 core.DIFF_MAX_LINES 同量级）
 CAT_MAX_LINES = 20000
-# 查看内容：自动适配文本编码时依次尝试的编码（纯标准库，无第三方依赖）。
-# 目标环境是中文系统，GBK/GB18030 的旧文件最常见，所以排在 Big5 等之前；
-# UTF-16 由 BOM 或无 BOM 的 NUL 分布单独判定（见 decode_text）。
-CAT_ENCODINGS = (
-    ("utf-8", u"UTF-8"),
-    ("gb18030", u"GB18030"),
-    ("big5", u"Big5"),
-    ("shift_jis", u"Shift-JIS"),
-    ("euc_kr", u"EUC-KR"),
-    ("latin-1", u"Latin-1"),
-)
-# 内容窗口“编码”菜单可选的编码（自动之外再给手动兜底）
-CAT_ENCODING_CHOICES = (CAT_ENCODINGS[:5]
-                        + (("utf-16-le", u"UTF-16 LE"),
-                           ("utf-16-be", u"UTF-16 BE"))
-                        + CAT_ENCODINGS[5:])
-_BOMS = (
-    (codecs.BOM_UTF32_LE, "utf-32-le", u"UTF-32 LE"),
-    (codecs.BOM_UTF32_BE, "utf-32-be", u"UTF-32 BE"),
-    (codecs.BOM_UTF8, "utf-8", u"UTF-8"),
-    (codecs.BOM_UTF16_LE, "utf-16-le", u"UTF-16 LE"),
-    (codecs.BOM_UTF16_BE, "utf-16-be", u"UTF-16 BE"),
-)
+# 文本编码自动适配的实现在 core（内置差异窗口也要用同一套判断）；
+# 这里保留模块级别名，查看内容窗口与既有测试按原名字访问。
+CAT_ENCODINGS = core.CAT_ENCODINGS
+CAT_ENCODING_CHOICES = core.CAT_ENCODING_CHOICES
+decode_text = core.decode_text
+_encoding_label = core._encoding_label
+_binary_bytes = core._binary_bytes
 # 勾选树每层缩进（字符数 = 列号步进，见 CheckoutSelect._zone_of）
 INDENT = u"    "
 
@@ -268,84 +251,6 @@ def read_local_kind(url, dst):
         return res
     res["kind"] = "same"
     return res
-
-
-def _encoding_label(name):
-    """编码名 -> 界面显示名（未知编码退回大写原名）。"""
-    for enc, label in CAT_ENCODING_CHOICES:
-        if enc == name:
-            return label
-    return (name or u"").upper()
-
-
-def _sniff_utf16(raw):
-    """无 BOM 的 UTF-16：NUL 字节集中在字节序的另一侧。
-
-    返回 "utf-16-le"/"utf-16-be" 或 None。只对含 NUL 的偶数长度样本判定，
-    拉丁/中文文本的 ASCII 部分（换行、空格等）会落在一侧，特征很明显。
-    """
-    n = len(raw)
-    if n < 4 or n % 2:
-        return None
-    head = raw[:4096]
-    even = head[0::2]
-    odd = head[1::2]
-    if not even or not odd:
-        return None
-    e = even.count(b"\x00") * 100 // len(even)
-    o = odd.count(b"\x00") * 100 // len(odd)
-    if e >= 25 and o <= 5:
-        return "utf-16-be"
-    if o >= 25 and e <= 5:
-        return "utf-16-le"
-    return None
-
-
-def _binary_bytes(raw):
-    """二进制判定：NUL（UTF-16/32 的 BOM 已先排除）或控制字符占比过高。"""
-    if not raw:
-        return False
-    for bom, _enc, _label in _BOMS:
-        if raw.startswith(bom):
-            return False
-    if b"\x00" in raw:
-        return True
-    sample = raw[:8192]
-    ctrl = 0
-    for b in sample:
-        if b < 9 or (13 < b < 32) or b == 127:
-            ctrl += 1
-    return ctrl * 10 >= len(sample)
-
-
-def decode_text(raw):
-    """`svn cat` 原始字节 -> (文本, 编码名, 是否二进制)。
-
-    自动适配顺序：BOM -> 无 BOM 的 UTF-16 -> 严格 UTF-8 -> GB18030 /
-    Big5 / Shift-JIS / EUC-KR / Latin-1。先严格解码再退回是判断的关键：
-    UTF-8 失败后通常就是 GBK/GB18030（中文旧文件最常见），拉丁字母的
-    单字节编码最后由 Latin-1 兜底。判断不出来时按 UTF-8 替换解码，
-    保证窗口仍能打开而不是报错。
-    """
-    if not raw:
-        return u"", u"UTF-8", False
-    for bom, enc, label in _BOMS:
-        if raw.startswith(bom):
-            return raw[len(bom):].decode(enc, "replace"), label, False
-    guess = _sniff_utf16(raw)
-    if guess:
-        try:
-            return raw.decode(guess), _encoding_label(guess), False
-        except UnicodeDecodeError:
-            pass
-    if _binary_bytes(raw):
-        return u"", u"", True
-    for enc, label in CAT_ENCODINGS:
-        try:
-            return raw.decode(enc), label, False
-        except (UnicodeDecodeError, LookupError):
-            continue
-    return raw.decode("utf-8", "replace"), u"UTF-8", False
 
 
 def cat_display(data, encoding=None):

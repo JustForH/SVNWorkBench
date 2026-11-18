@@ -1737,10 +1737,20 @@ class App(object):
             return
         cut = len(data) > limit
         data = data[:limit]
-        if b"\x00" in data:
+        if cut:
+            # 截断点可能落在多字节字符中间：编码识别遇到不完整的尾部序列
+            # 会误判成别的编码。按行尾裁到最后一个完整行；连换行都没有
+            # 的单行文件才退而丢掉末尾 3 字节（多字节序列最多 4 字节）
+            nl = data.rfind(b"\n")
+            if nl >= 0:
+                data = data[:nl + 1]
+            elif len(data) > 3:
+                data = data[:-3]
+        text, _enc, binary = core.decode_text(data)
+        if binary:
             lines = [u"# %s 是二进制文件，无法显示文本差异" % path]
         else:
-            rows = data.decode("utf-8", "replace").splitlines()
+            rows = text.splitlines()
             more = len(rows) > DIFF_MAX_LINES
             rows = rows[:DIFF_MAX_LINES]
             lines = [u"Index: %s" % path,

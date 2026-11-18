@@ -16,8 +16,8 @@ from datetime import datetime
 from pathlib import Path
 
 from .core import (AUTH_HINTS, CERT_HINTS, RunCancelled,
-                   _contains_any, cmd_str, decode_svn_url,
-                   diff_stats, has_exclude_child, is_excluded,
+                   _contains_any, cmd_str, decode_diff_output,
+                   decode_svn_url, diff_stats, has_exclude_child, is_excluded,
                    normalize_svn_url,
                    parse_info_repo, parse_log_xml,
                    parse_status_xml,
@@ -532,10 +532,10 @@ class Runner(threading.Thread):
         cmd = ["svn", "diff", "--internal-diff"]
         if path:
             cmd.append(path)
-        self._buffer = []
-        self._run(cmd, cwd=str(wc), sink="buffer")
-        lines = self._buffer
-        self._buffer = None
+        # 原始字节交给 core 按文件实际编码解码：svn 的 hunk 正文原样携带
+        # 文件内容（GBK 旧文件常见），先按 UTF-8 解码会整段变成乱码
+        raw = self._run(cmd, cwd=str(wc), sink="bytes")
+        lines = decode_diff_output(raw)
         return {"lines": lines, "stats": diff_stats(lines)}
 
     def _do_log(self):
@@ -631,10 +631,9 @@ class Runner(threading.Thread):
         cmd = ["svn", "diff", "--internal-diff", "-c", rev]
         if cwd is None:
             cmd.append(target)
-        self._buffer = []
-        self._run(cmd, cwd=cwd, sink="buffer")
-        lines = self._buffer
-        self._buffer = None
+        # 同 _do_diff：原始字节按文件实际编码解码，GBK 文件不能先按 UTF-8
+        raw = self._run(cmd, cwd=cwd, sink="bytes")
+        lines = decode_diff_output(raw)
         return {"rev": rev, "title": title,
                 "lines": lines, "stats": diff_stats(lines)}
 
